@@ -1,0 +1,33 @@
+name: DevSecOps Security Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  security-validation:
+    name: Testes de Regressão e Análise Estática (SAST)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Executar testes automatizados de regressão de segurança (SQLi Lab)
+        run: python -m unittest discover -s lab -p "test_*.py" -v
+
+      - name: Instalar Bandit (SAST para Python)
+        run: pip install bandit
+
+      - name: Análise estática (SAST) no código corrigido
+        run: bandit -ll lab/app_seguro.py
