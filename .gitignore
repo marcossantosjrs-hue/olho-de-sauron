@@ -14,3 +14,11 @@ Thumbs.db
 # Python
 __pycache__/
 *.py[cod]
+dist/
+build/
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# Relatórios gerados pelo scanner
+reports/

@@ -1,0 +1,7 @@
+click>=8.1
+colorama>=0.4.6
+fastapi>=0.115
+PyYAML>=6.0
+rich>=13.7
+uvicorn>=0.30
+psutil>=5.9

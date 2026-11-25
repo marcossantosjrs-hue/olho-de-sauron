@@ -8,10 +8,11 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   security-validation:
-    name: Testes de Regressão e Análise Estática (SAST)
+    name: Testes, Scanner Olho de Sauron e SAST
     runs-on: ubuntu-latest
 
     steps:
@@ -23,11 +24,48 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Executar testes automatizados de regressão de segurança (SQLi Lab)
+      - name: Instalar Olho de Sauron CLI
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Executar testes automatizados do laboratório (SQLi Lab)
         run: python -m unittest discover -s lab -p "test_*.py" -v
 
-      - name: Instalar Bandit (SAST para Python)
+      - name: Executar suíte de testes da ferramenta CLI
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Executar auto-varredura DevSecOps com Olho de Sauron
+        run: |
+          sauron scan olho_de_sauron scripts installer lab/app_seguro.py \
+            --sarif reports/sauron.sarif \
+            --html reports/sauron-report.html \
+            --md-out reports/sauron-summary.md \
+            --fail-on high
+
+      - name: Publicar resumo DevSecOps no GitHub Step Summary
+        if: always()
+        run: |
+          if [ -f reports/sauron-summary.md ]; then
+            cat reports/sauron-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Enviar relatório SARIF para a aba Security do GitHub
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/sauron.sarif
+
+      - name: Publicar dashboard HTML como artefato do workflow
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: olho-de-sauron-reports
+          path: reports/
+
+      - name: Instalar Bandit (SAST complementar para Python)
         run: pip install bandit
 
-      - name: Análise estática (SAST) no código corrigido
-        run: bandit -ll lab/app_seguro.py
+      - name: Análise estática (SAST) no código seguro e na CLI
+        run: bandit -ll lab/app_seguro.py -r olho_de_sauron scripts installer

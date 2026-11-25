@@ -1,0 +1,18 @@
+# Padrões ignorados por padrão pelo Olho de Sauron
+.git/
+__pycache__/
+.venv/
+venv/
+env/
+node_modules/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+reports/
+docs/prints/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.zip

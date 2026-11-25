@@ -1,0 +1,65 @@
+name: Build Standalone Executable & Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    name: Compilar OlhoDeSauron.exe e Setup (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências, Pillow e PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pillow pyinstaller
+
+      - name: Gerar ícones e compilar executáveis
+        run: |
+          python scripts/prepare_icon.py
+          python scripts/build_exe.py
+
+      - name: Smoke test do executável portátil e instalador silencioso
+        run: |
+          .\dist\OlhoDeSauron.exe version
+          .\dist\OlhoDeSauron.exe rules
+          $testDir = "$env:TEMP\olho_sauron_ci_install"
+          .\dist\OlhoDeSauron-Setup.exe --silent --dir "$testDir" --no-shortcuts --no-registry
+          & "$testDir\OlhoDeSauron.exe" version
+          Remove-Item -Recurse -Force "$testDir"
+
+      - name: Publicar artefatos do workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: OlhoDeSauron-Windows-x64
+          path: |
+            dist/OlhoDeSauron-Setup.exe
+            dist/OlhoDeSauron-Setup.exe.sha256
+            dist/OlhoDeSauron.exe
+            dist/OlhoDeSauron.exe.sha256
+
+      - name: Publicar na aba Releases do GitHub (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/OlhoDeSauron-Setup.exe
+            dist/OlhoDeSauron-Setup.exe.sha256
+            dist/OlhoDeSauron.exe
+            dist/OlhoDeSauron.exe.sha256

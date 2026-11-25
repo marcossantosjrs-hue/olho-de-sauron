@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Olho de Sauron — Central SOC Defensiva</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" href="/static/sauron_eye.png">
+  <style>
+    :root {
+      --bg: #080a0f;
+      --sidebar: #0d111a;
+      --surface: #121723;
+      --surface-2: #192030;
+      --border: #252f44;
+      --text: #e6ecf7;
+      --muted: #8f9bb3;
+      --amber: #f59e0b;
+      --fire: #ea580c;
+      --critical: #ef4444;
+      --high: #f97316;
+      --medium: #eab308;
+      --low: #38bdf8;
+      --ok: #22c55e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 85% 0%, #24130f 0%, var(--bg) 48%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+    .sidebar {
+      width: 260px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      padding: 22px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+    .brand {
+      padding: 8px 12px 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--amber);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-sub { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+    .nav-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      padding: 11px 14px;
+      border-radius: 10px;
+      text-align: left;
+      font-size: .92rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all .15s;
+    }
+    .nav-btn:hover { background: var(--surface); color: var(--text); }
+    .nav-btn.active {
+      background: linear-gradient(90deg, rgba(245,158,11,.16), rgba(234,88,12,.06));
+      border-color: rgba(245,158,11,.45);
+      color: var(--amber);
+    }
+    .sidebar-foot {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      font-size: .76rem;
+      color: var(--muted);
+    }
+    .main {
+      flex: 1;
+      padding: 26px 28px 60px;
+      max-width: 1320px;
+      width: 100%;
+      overflow-x: hidden;
+    }
+    .section { display: none; }
+    .section.active { display: block; }
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .section-header h1 { margin: 0; font-size: 1.5rem; }
+    .section-header p { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+    .btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 15px;
+      border-radius: 9px;
+      font-weight: 600;
+      font-size: .88rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color .15s, transform .1s;
+    }
+    .btn:hover { border-color: var(--amber); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--amber), var(--fire));
+      border: none;
+      color: #0b0d12;
+      font-weight: 800;
+    }
+    .btn-primary:hover { filter: brightness(1.06); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .grid-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 18px;
+    }
+    .kpi-title { font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+    .kpi-num { font-size: 1.8rem; font-weight: 800; margin-top: 6px; }
+    .kpi-sub { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .panel h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--amber); }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: .74rem;
+      font-weight: 800;
+      letter-spacing: .4px;
+    }
+    .b-CRITICAL, .b-PERIGOSO, .b-CRITICO, .b-BLOQUEADO { background: rgba(239,68,68,.2); color: #f87171; border: 1px solid rgba(239,68,68,.5); }
+    .b-HIGH { background: rgba(249,115,22,.2); color: #fb923c; border: 1px solid rgba(249,115,22,.5); }
+    .b-MEDIUM, .b-SUSPEITO, .b-ALERTA, .b-AJUSTES_RECOMENDADOS { background: rgba(234,179,8,.18); color: #facc15; border: 1px solid rgba(234,179,8,.45); }
+    .b-LOW, .b-INFO { background: rgba(56,189,248,.16); color: #7dd3fc; border: 1px solid rgba(56,189,248,.4); }
+    .b-SEGURO, .b-APROVADO, .b-OK { background: rgba(34,197,94,.18); color: #4ade80; border: 1px solid rgba(34,197,94,.45); }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 34px 20px;
+      text-align: center;
+      background: var(--surface-2);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .dropzone.dragover { border-color: var(--amber); background: rgba(245,158,11,.08); }
+    textarea, input[type="text"], input[type="search"] {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-family: inherit;
+      font-size: .92rem;
+    }
+    textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, monospace; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+    .alert-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--amber);
+      border-radius: 10px;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+    }
+    .alert-item.sev-CRITICAL { border-left-color: var(--critical); }
+    .alert-item.sev-HIGH { border-left-color: var(--high); }
+    .alert-item.sev-MEDIUM { border-left-color: var(--medium); }
+    .alert-item.sev-LOW { border-left-color: var(--low); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: var(--surface-2); color: var(--muted); font-weight: 700; white-space: nowrap; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    code.mono { font-family: ui-monospace, monospace; font-size: .82rem; color: #cbd5e1; word-break: break-all; }
+    .indicator-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+    .ind-pill {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      font-family: ui-monospace, monospace;
+      font-size: .8rem;
+    }
+    .ind-pill.hit { border-color: var(--critical); color: #fca5a5; }
+    .chart-box {
+      width: 100%;
+      height: 190px;
+      background: #090c12;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .switch-label { display: inline-flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--muted); cursor: pointer; }
+    .pill-filter {
+      padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
+      background: var(--surface-2); color: var(--muted); cursor: pointer; font-size: .8rem; font-weight: 700;
+    }
+    .pill-filter.active { border-color: var(--amber); color: var(--amber); }
+    .empty-msg { color: var(--muted); font-size: .9rem; padding: 10px 0; }
+    @media (max-width: 860px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; padding: 12px; }
+      .brand, .sidebar-foot { display: none; }
+      .nav-btn { width: auto; flex: 1 1 140px; padding: 8px 10px; }
+      .main { padding: 18px 14px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-title"><img src="/static/sauron_eye.png" alt="Olho de Sauron" style="width:32px;height:32px;border-radius:8px;box-shadow:0 0 12px rgba(245,158,11,.45);"> Olho de Sauron</div>
+      <div class="brand-sub">Central SOC &amp; DevSecOps Local</div>
+    </div>
+    <button class="nav-btn active" data-tab="overview" onclick="switchTab('overview')">&#128737; Painel SOC</button>
+    <button class="nav-btn" data-tab="pdf" onclick="switchTab('pdf')">&#128196; Scanner de PDFs</button>
+    <button class="nav-btn" data-tab="links" onclick="switchTab('links')">&#128279; Analisador de Links</button>
+    <button class="nav-btn" data-tab="processes" onclick="switchTab('processes')">&#9881; Processos da Máquina</button>
+    <button class="nav-btn" data-tab="network" onclick="switchTab('network')">&#127760; Tráfego de Rede</button>
+    <button class="nav-btn" data-tab="code" onclick="switchTab('code')">&#128270; Código DevSecOps</button>
+    <div class="sidebar-foot" id="healthFoot">Conectando à API local...</div>
+  </aside>
+
+  <main class="main">
+    <!-- 1. PAINEL SOC -->
+    <section id="tab-overview" class="section active">
+      <div class="section-header">
+        <div>
+          <h1>Central de Segurança Defensiva</h1>
+          <p>Inspecione PDFs suspeitos, links de phishing, processos locais, tráfego de rede e código-fonte em um só lugar.</p>
+        </div>
+        <button class="btn btn-primary" onclick="runMachineDiagnostics()">Executar Diagnóstico da Máquina</button>
+      </div>
+
+      <div class="grid-cards">
+        <div class="card">
+          <div class="kpi-title">Processos Ativos</div>
+          <div class="kpi-num" id="ovProcTotal">--</div>
+          <div class="kpi-sub" id="ovProcStatus">Clique em Diagnóstico para verificar</div>
+        </div>
+        <div class="card">
+          <div class="kpi-title">Conexões de Rede</div>
+          <div class="kpi-num" id="ovNetTotal">--</div>
+          <div class="kpi-sub" id="ovNetStatus">Monitoramento sob demanda ou ao vivo</div>
+        </div>
+        <div class="card">
+          <div class="kpi-title">Tráfego Atual (RX / TX)</div>
+          <div class="kpi-num" id="ovNetRate">--</div>
+          <div class="kpi-sub" id="ovNetBytes">Bytes acumulados da interface</div>
+        </div>
+        <div class="card">
+          <div class="kpi-title">Alertas da Máquina</div>
+          <div class="kpi-num" id="ovAlertsTotal">--</div>
+          <div class="kpi-sub">Processos + Conexões suspeitas</div>
+        </div>
+      </div>
+
+      <div class="grid-cards">
+        <div class="card">
+          <h2>&#128196; Scanner de PDFs</h2>
+          <p class="empty-msg">Detecta <code>/JavaScript</code>, <code>/OpenAction</code>, <code>/Launch</code>, anexos ocultos, ofuscação e audita URLs dentro do PDF.</p>
+          <button class="btn" onclick="switchTab('pdf')">Abrir Scanner de PDF</button>
+        </div>
+        <div class="card">
+          <h2>&#128279; Analisador de Links</h2>
+          <p class="empty-msg">Identifica phishing, impersonação de bancos, punycode, encurtadores, executáveis e valida headers com anti-SSRF.</p>
+          <button class="btn" onclick="switchTab('links')">Abrir Analisador de Links</button>
+        </div>
+        <div class="card">
+          <h2>&#9881; Threat Hunting Local</h2>
+          <p class="empty-msg">Verifica LOLBins com argumentos suspeitos, binários em pastas Temp, mascaramento de processos e mineradores.</p>
+          <button class="btn" onclick="switchTab('processes')">Inspecionar Processos</button>
+        </div>
+        <div class="card">
+          <h2>&#127760; Monitor de Rede</h2>
+          <p class="empty-msg">Acompanha Download/Upload em tempo real, portas C2, serviços expostos em <code>0.0.0.0</code> e correlação por PID.</p>
+          <button class="btn" onclick="switchTab('network')">Monitorar Rede</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. SCANNER DE PDF -->
+    <section id="tab-pdf" class="section">
+      <div class="section-header">
+        <div>
+          <h1>Scanner Estrutural de PDFs</h1>
+          <p>Análise segura sem abrir ou renderizar o arquivo (estilo <code>pdfid</code> + auditoria automática de links embutidos).</p>
+        </div>
+        <button class="btn" onclick="loadSimulatedMaliciousPdf()">Carregar PDF de Teste (Simulado)</button>
+      </div>
+
+      <div class="panel">
+        <div id="pdfDropzone" class="dropzone" onclick="document.getElementById('pdfInput').click()">
+          <div style="font-size:1.1rem;font-weight:700;color:var(--amber);">Arraste um arquivo .pdf aqui ou clique para selecionar</div>
+          <div class="empty-msg">Limite máximo: 15 MB • Processado 100% localmente na sua máquina</div>
+          <input id="pdfInput" type="file" accept=".pdf,application/pdf" style="display:none" onchange="handlePdfFile(this.files[0])">
+        </div>
+      </div>
+
+      <div id="pdfResultArea"></div>
+    </section>
+
+    <!-- 3. ANALISADOR DE LINKS -->
+    <section id="tab-links" class="section">
+      <div class="section-header">
+        <div>
+          <h1>Analisador de Links &amp; Anti-Phishing</h1>
+          <p>Cole uma ou mais URLs (uma por linha) para checar heurísticas de phishing, domínio homógrafo, TLD e headers.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <textarea id="linksInput" placeholder="https://www.google.com&#10;http://nubank-seguro.atualiza.xyz/login.exe"></textarea>
+        <div class="row-actions">
+          <button class="btn btn-primary" onclick="scanLinks()">Analisar Links</button>
+          <button class="btn" onclick="fillLinkDemo('phishing')">Exemplo Phishing</button>
+          <button class="btn" onclick="fillLinkDemo('safe')">Exemplo Seguro</button>
+          <label class="switch-label">
+            <input id="linksLiveCheck" type="checkbox">
+            Verificar headers HTTP/TLS ao vivo (com proteção anti-SSRF)
+          </label>
+        </div>
+      </div>
+
+      <div id="linksResultArea"></div>
+    </section>
+
+    <!-- 4. PROCESSOS -->
+    <section id="tab-processes" class="section">
+      <div class="section-header">
+        <div>
+          <h1>Monitor de Processos &amp; Threat Hunting</h1>
+          <p>Inspeciona os processos ativos na máquina buscando LOLBins, diretórios temporários, mascaramento e mineradores.</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadProcesses()">Escanear Processos Agora</button>
+      </div>
+
+      <div id="procSummaryArea"></div>
+      <div class="panel">
+        <div class="row-actions" style="margin-top:0;margin-bottom:14px;">
+          <input id="procSearch" type="search" style="max-width:340px" placeholder="Buscar processo por nome, PID ou caminho..." oninput="renderProcessTable()">
+          <label class="switch-label">
+            <input id="procOnlySuspicious" type="checkbox" onchange="renderProcessTable()">
+            Mostrar apenas processos suspeitos
+          </label>
+        </div>
+        <div id="procTableArea" class="empty-msg">Clique em "Escanear Processos Agora" para listar os processos da máquina.</div>
+      </div>
+    </section>
+
+    <!-- 5. REDE -->
+    <section id="tab-network" class="section">
+      <div class="section-header">
+        <div>
+          <h1>Monitor de Tráfego de Rede &amp; Conexões</h1>
+          <p>Visualiza taxa RX/TX em tempo real, portas expostas, conexões por processo e detecção de anomalias.</p>
+        </div>
+        <div class="row-actions" style="margin-top:0;">
+          <button class="btn btn-primary" onclick="loadNetwork()">Atualizar Snapshot</button>
+          <label class="switch-label">
+            <input id="netAutoRefresh" type="checkbox" onchange="toggleNetworkLive(this.checked)">
+            Monitoramento ao vivo (3s)
+          </label>
+        </div>
+      </div>
+
+      <div id="netSummaryArea"></div>
+
+      <div class="panel">
+        <h2>Taxa de Tráfego em Tempo Real (KB/s)</h2>
+        <div class="chart-box">
+          <svg id="netChart" viewBox="0 0 800 160" width="100%" height="100%" preserveAspectRatio="none"></svg>
+        </div>
+        <div style="display:flex;gap:18px;margin-top:8px;font-size:.82rem;color:var(--muted);">
+          <span><strong style="color:#38bdf8;">&#9644;</strong> Download (RX KB/s)</span>
+          <span><strong style="color:#f59e0b;">&#9644;</strong> Upload (TX KB/s)</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row-actions" style="margin-top:0;margin-bottom:14px;">
+          <button class="pill-filter active" data-netfilter="ALL" onclick="setNetFilter('ALL', this)">TODOS</button>
+          <button class="pill-filter" data-netfilter="ESTABLISHED" onclick="setNetFilter('ESTABLISHED', this)">ESTABLISHED</button>
+          <button class="pill-filter" data-netfilter="LISTEN" onclick="setNetFilter('LISTEN', this)">LISTEN</button>
+          <button class="pill-filter" data-netfilter="SUSPICIOUS" onclick="setNetFilter('SUSPICIOUS', this)">SUSPEITOS</button>
+          <input id="netSearch" type="search" style="max-width:280px;margin-left:auto;" placeholder="Filtrar IP, porta ou processo..." oninput="renderNetworkTable()">
+        </div>
+        <div id="netTableArea" class="empty-msg">Clique em "Atualizar Snapshot" para inspecionar conexões e tráfego.</div>
+      </div>
+    </section>
+
+    <!-- 6. CÓDIGO DEVSECOPS -->
+    <section id="tab-code" class="section">
+      <div class="section-header">
+        <div>
+          <h1>Scanner de Código &amp; Infraestrutura (DevSecOps)</h1>
+          <p>Executa os 4 motores estáticos (SAST AST, Segredos, Hardening e Dependências) em qualquer pasta ou arquivo local.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row-actions" style="margin-top:0;">
+          <input id="codeTargetInput" type="text" style="max-width:420px" value="lab" placeholder="Caminho relativo ou absoluto (ex.: lab/app_vulneravel.py)">
+          <button class="btn btn-primary" onclick="scanCode()">Analisar Código</button>
+          <button class="btn" onclick="scanCodePreset('lab/app_vulneravel.py')">Testar app_vulneravel.py</button>
+          <button class="btn" onclick="scanCodePreset('lab/app_seguro.py')">Testar app_seguro.py</button>
+        </div>
+      </div>
+
+      <div id="codeResultArea"></div>
+    </section>
+  </main>
+
+  <script>
+    let lastProcData = null;
+    let lastNetData = null;
+    let netFilter = "ALL";
+    let netTimer = null;
+
+    function esc(val) {
+      return String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function fmtBytes(bytes) {
+      const b = Number(bytes || 0);
+      if (b < 1024) return b + " B";
+      if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
+      if (b < 1073741824) return (b / 1048576).toFixed(2) + " MB";
+      return (b / 1073741824).toFixed(2) + " GB";
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("tab-" + name).classList.add("active");
+      document.querySelector('.nav-btn[data-tab="' + name + '"]').classList.add("active");
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch("/api/health");
+        const data = await res.json();
+        document.getElementById("healthFoot").innerHTML =
+          `<span class="badge b-OK">ONLINE</span> v${esc(data.version)} • ${esc(data.platform)}`;
+      } catch (err) {
+        document.getElementById("healthFoot").textContent = "API indisponível";
+      }
+    }
+
+    async function runMachineDiagnostics() {
+      await Promise.all([loadProcesses(), loadNetwork()]);
+      if (lastProcData) {
+        document.getElementById("ovProcTotal").textContent = lastProcData.total_processes;
+        document.getElementById("ovProcStatus").innerHTML =
+          `<span class="badge b-${esc(lastProcData.verdict)}">${esc(lastProcData.verdict)}</span> ${lastProcData.suspicious_count} suspeito(s)`;
+      }
+      if (lastNetData) {
+        const s = lastNetData.summary;
+        document.getElementById("ovNetTotal").textContent = s.total_connections;
+        document.getElementById("ovNetStatus").innerHTML =
+          `${s.established_count} ativas • ${s.listening_count} escutando`;
+        document.getElementById("ovNetRate").textContent = `${s.rx_kbps} / ${s.tx_kbps} KB/s`;
+        document.getElementById("ovNetBytes").textContent =
+          `RX ${fmtBytes(s.total_bytes_recv)} | TX ${fmtBytes(s.total_bytes_sent)}`;
+      }
+      const totalAlerts =
+        (lastProcData ? lastProcData.alerts.length : 0) +
+        (lastNetData ? lastNetData.alerts.length : 0);
+      document.getElementById("ovAlertsTotal").textContent = totalAlerts;
+    }
+
+    // --- PDF SCANNER ---
+    const dz = document.getElementById("pdfDropzone");
+    dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("dragover"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    dz.addEventListener("drop", e => {
+      e.preventDefault();
+      dz.classList.remove("dragover");
+      if (e.dataTransfer.files.length) handlePdfFile(e.dataTransfer.files[0]);
+    });
+
+    function handlePdfFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const bytes = new Uint8Array(reader.result);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const b64 = btoa(binary);
+        await submitPdfPayload(file.name, b64);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    async function loadSimulatedMaliciousPdf() {
+      const sample = [
+        "%PDF-1.7",
+        "1 0 obj << /Title (Boleto_Simulado) /Author (TesteLab) >> endobj",
+        "2 0 obj << /OpenAction 3 0 R /AA << /O 3 0 R >> >> endobj",
+        "3 0 obj << /S /JavaScript /JS (app.alert('demo')) >> endobj",
+        "4 0 obj << /A << /S /URI /URI (http://nubank-seguro.atualiza.xyz/fatura.exe) >> >> endobj",
+        "%%EOF"
+      ].join("\n");
+      await submitPdfPayload("fatura_simulada_lab.pdf", btoa(sample));
+    }
+
+    async function submitPdfPayload(filename, contentBase64) {
+      const area = document.getElementById("pdfResultArea");
+      area.innerHTML = `<div class="panel">Analisando <strong>${esc(filename)}</strong>...</div>`;
+      try {
+        const res = await fetch("/api/scan/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename, content_base64: contentBase64 })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Falha ao analisar PDF");
+        renderPdfResult(data);
+      } catch (err) {
+        area.innerHTML = `<div class="panel"><span class="badge b-CRITICAL">ERRO</span> ${esc(err.message)}</div>`;
+      }
+    }
+
+    function renderPdfResult(d) {
+      const indicatorsHtml = Object.entries(d.indicators || {}).map(([k, v]) =>
+        `<div class="ind-pill ${v > 0 ? 'hit' : ''}"><span>${esc(k)}</span><strong>${v}</strong></div>`
+      ).join("");
+
+      const findingsHtml = d.findings.length
+        ? d.findings.map(f => `
+          <div class="alert-item sev-${esc(f.severity)}">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span class="badge b-${esc(f.severity)}">${esc(f.severity)}</span>
+              <strong>${esc(f.rule_id)}</strong> — ${esc(f.title)}
+            </div>
+            <div class="empty-msg">${esc(f.description)}</div>
+            <div style="font-size:.82rem;color:#cbd5e1;"><strong>MITRE:</strong> ${esc(f.mitre_attack)} • <strong>Ação:</strong> ${esc(f.remediation)}</div>
+          </div>`).join("")
+        : `<div class="empty-msg">Nenhum indicador malicioso estrutural encontrado neste PDF.</div>`;
+
+      const urlsHtml = d.extracted_urls.length
+        ? `<div class="table-wrap"><table><thead><tr><th>URL Extraída</th><th>Veredito</th><th>Risco</th></tr></thead><tbody>
+            ${d.extracted_urls.map(u => `<tr>
+              <td><code class="mono">${esc(u.url)}</code></td>
+              <td><span class="badge b-${esc(u.verdict)}">${esc(u.verdict)}</span></td>
+              <td>${u.risk_score}/100</td>
+            </tr>`).join("")}
+          </tbody></table></div>`
+        : `<div class="empty-msg">Nenhuma URL encontrada dentro do documento.</div>`;
+
+      document.getElementById("pdfResultArea").innerHTML = `
+        <div class="grid-cards">
+          <div class="card"><div class="kpi-title">Veredito</div><div class="kpi-num"><span class="badge b-${esc(d.verdict)}" style="font-size:1rem;">${esc(d.verdict)}</span></div><div class="kpi-sub">Risco: ${d.risk_score}/100</div></div>
+          <div class="card"><div class="kpi-title">Arquivo &amp; Versão</div><div class="kpi-num" style="font-size:1.15rem;">${esc(d.filename)}</div><div class="kpi-sub">${fmtBytes(d.size_bytes)} • PDF ${esc(d.pdf_version || "N/A")}</div></div>
+          <div class="card"><div class="kpi-title">Estrutura</div><div class="kpi-num">${d.page_count} pág.</div><div class="kpi-sub">${d.object_count} objetos • ${d.stream_count} streams</div></div>
+          <div class="card"><div class="kpi-title">SHA-256</div><div class="kpi-sub" style="margin-top:8px;"><code class="mono">${esc(d.sha256)}</code></div></div>
+        </div>
+        <div class="panel"><h2>Achados de Segurança (${d.findings.length})</h2>${findingsHtml}</div>
+        <div class="panel"><h2>Indicadores Estruturais (pdfid)</h2><div class="indicator-grid">${indicatorsHtml}</div></div>
+        <div class="panel"><h2>URLs Extraídas e Auditadas (${d.extracted_urls.length})</h2>${urlsHtml}</div>
+      `;
+    }
+
+    // --- LINKS ---
+    function fillLinkDemo(kind) {
+      document.getElementById("linksInput").value = kind === "phishing"
+        ? "http://nubank-seguro.atualiza.xyz/login.exe\nhttps://banco.com@evil.click/confirm-pix\nhttp://192.168.1.50/admin"
+        : "https://www.github.com\nhttps://docs.python.org/3/";
+    }
+
+    async function scanLinks() {
+      const lines = document.getElementById("linksInput").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      if (!lines.length) return;
+      const checkLive = document.getElementById("linksLiveCheck").checked;
+      const area = document.getElementById("linksResultArea");
+      area.innerHTML = `<div class="panel">Analisando ${lines.length} link(s)...</div>`;
+      try {
+        const res = await fetch("/api/scan/links", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urls: lines, check_live: checkLive })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Falha ao analisar links");
+        renderLinksResult(data);
+      } catch (err) {
+        area.innerHTML = `<div class="panel"><span class="badge b-CRITICAL">ERRO</span> ${esc(err.message)}</div>`;
+      }
+    }
+
+    function renderLinksResult(data) {
+      const cards = data.results.map(r => {
+        const findingsHtml = r.findings.length
+          ? r.findings.map(f => `
+            <div class="alert-item sev-${esc(f.severity)}">
+              <span class="badge b-${esc(f.severity)}">${esc(f.severity)}</span>
+              <strong>${esc(f.rule_id)}</strong> — ${esc(f.title)}
+              <div class="empty-msg">${esc(f.description)}</div>
+              <div style="font-size:.82rem;color:#cbd5e1;"><strong>Correção:</strong> ${esc(f.remediation)}</div>
+            </div>`).join("")
+          : `<div class="empty-msg">Nenhum indicador suspeito detectado na URL.</div>`;
+
+        let liveHtml = "";
+        if (r.live_check) {
+          if (r.live_check.blocked_ssrf) {
+            liveHtml = `<div class="alert-item sev-HIGH"><strong>Proteção anti-SSRF ativada:</strong> ${esc(r.live_check.error)}</div>`;
+          } else if (r.live_check.checked) {
+            const hdrs = Object.entries(r.live_check.security_headers || {})
+              .map(([k, v]) => `<span class="ind-pill ${v ? '' : 'hit'}"><span>${esc(k)}</span><strong>${v ? 'OK' : 'AUSENTE'}</strong></span>`)
+              .join("");
+            liveHtml = `<div style="margin-top:10px;"><strong>HTTP ${r.live_check.status_code}</strong> • Destino: <code class="mono">${esc(r.live_check.final_url)}</code><div class="indicator-grid" style="margin-top:8px;">${hdrs}</div></div>`;
+          } else if (r.live_check.error) {
+            liveHtml = `<div class="empty-msg">Live check: ${esc(r.live_check.error)}</div>`;
+          }
+        }
+
+        return `
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+              <div><code class="mono" style="font-size:.95rem;">${esc(r.url)}</code></div>
+              <div><span class="badge b-${esc(r.verdict)}">${esc(r.verdict)}</span> <strong style="margin-left:8px;">Risco: ${r.risk_score}/100</strong></div>
+            </div>
+            ${findingsHtml}
+            ${liveHtml}
+          </div>
+        `;
+      }).join("");
+      document.getElementById("linksResultArea").innerHTML = cards;
+    }
+
+    // --- PROCESSOS ---
+    async function loadProcesses() {
+      try {
+        const res = await fetch("/api/monitor/processes");
+        lastProcData = await res.json();
+        renderProcessSummary(lastProcData);
+        renderProcessTable();
+      } catch (err) {
+        document.getElementById("procTableArea").textContent = "Erro ao coletar processos: " + err.message;
+      }
+    }
+
+    function renderProcessSummary(d) {
+      const alertsHtml = d.alerts.length
+        ? d.alerts.map(a => `
+          <div class="alert-item sev-${esc(a.severity)}">
+            <span class="badge b-${esc(a.severity)}">${esc(a.severity)}</span>
+            <strong>${esc(a.rule_id)}</strong> (PID ${a.pid} • ${esc(a.process_name)}) — ${esc(a.title)}
+            <div class="empty-msg">${esc(a.description)}</div>
+          </div>`).join("")
+        : `<div class="empty-msg">Nenhum comportamento malicioso detectado nos processos ativos.</div>`;
+
+      document.getElementById("procSummaryArea").innerHTML = `
+        <div class="grid-cards">
+          <div class="card"><div class="kpi-title">Status Geral</div><div class="kpi-num"><span class="badge b-${esc(d.verdict)}" style="font-size:1rem;">${esc(d.verdict)}</span></div><div class="kpi-sub">Coletor: ${esc(d.collector)}</div></div>
+          <div class="card"><div class="kpi-title">Total de Processos</div><div class="kpi-num">${d.total_processes}</div><div class="kpi-sub">${esc(d.platform)}</div></div>
+          <div class="card"><div class="kpi-title">Suspeitos</div><div class="kpi-num" style="color:${d.suspicious_count ? 'var(--critical)' : 'var(--ok)'}">${d.suspicious_count}</div><div class="kpi-sub">Críticos: ${d.critical_count}</div></div>
+          <div class="card"><div class="kpi-title">Memória Agregada</div><div class="kpi-num">${d.total_memory_mb} MB</div><div class="kpi-sub">Working Set</div></div>
+        </div>
+        <div class="panel"><h2>Alertas de Threat Hunting (${d.alerts.length})</h2>${alertsHtml}</div>
+      `;
+    }
+
+    function renderProcessTable() {
+      if (!lastProcData) return;
+      const q = document.getElementById("procSearch").value.trim().toLowerCase();
+      const onlySusp = document.getElementById("procOnlySuspicious").checked;
+      const rows = lastProcData.processes.filter(p => {
+        if (onlySusp && !p.suspicious) return false;
+        if (!q) return true;
+        return (p.name + " " + p.pid + " " + p.exe + " " + p.cmdline).toLowerCase().includes(q);
+      });
+
+      document.getElementById("procTableArea").innerHTML = `
+        <div class="table-wrap"><table>
+          <thead><tr><th>PID</th><th>PPID</th><th>Processo</th><th>RAM (MB)</th><th>Status</th><th>Caminho / Comando</th></tr></thead>
+          <tbody>
+            ${rows.slice(0, 250).map(p => `<tr>
+              <td>${p.pid}</td>
+              <td>${p.ppid}</td>
+              <td><strong>${esc(p.name)}</strong>${p.parent_name ? `<div class="kpi-sub">Pai: ${esc(p.parent_name)}</div>` : ""}</td>
+              <td>${p.memory_mb}</td>
+              <td><span class="badge b-${esc(p.risk_level)}">${esc(p.risk_level)}</span></td>
+              <td><code class="mono">${esc(p.cmdline || p.exe || "-")}</code></td>
+            </tr>`).join("")}
+          </tbody>
+        </table></div>
+      `;
+    }
+
+    // --- REDE ---
+    function toggleNetworkLive(enabled) {
+      if (netTimer) { clearInterval(netTimer); netTimer = null; }
+      if (enabled) {
+        loadNetwork();
+        netTimer = setInterval(loadNetwork, 3000);
+      }
+    }
+
+    function setNetFilter(filter, btn) {
+      netFilter = filter;
+      document.querySelectorAll(".pill-filter").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderNetworkTable();
+    }
+
+    async function loadNetwork() {
+      try {
+        const res = await fetch("/api/monitor/network");
+        lastNetData = await res.json();
+        renderNetworkSummary(lastNetData);
+        renderNetworkChart(lastNetData.traffic_history || []);
+        renderNetworkTable();
+      } catch (err) {
+        document.getElementById("netTableArea").textContent = "Erro ao coletar rede: " + err.message;
+      }
+    }
+
+    function renderNetworkSummary(d) {
+      const s = d.summary;
+      const alertsHtml = d.alerts.length
+        ? d.alerts.map(a => `
+          <div class="alert-item sev-${esc(a.severity)}">
+            <span class="badge b-${esc(a.severity)}">${esc(a.severity)}</span>
+            <strong>${esc(a.rule_id)}</strong> (${esc(a.process_name)} • <code class="mono">${esc(a.endpoint)}</code>) — ${esc(a.title)}
+            <div class="empty-msg">${esc(a.description)}</div>
+          </div>`).join("")
+        : `<div class="empty-msg">Nenhuma conexão suspeita detectada neste snapshot.</div>`;
+
+      document.getElementById("netSummaryArea").innerHTML = `
+        <div class="grid-cards">
+          <div class="card"><div class="kpi-title">Status de Rede</div><div class="kpi-num"><span class="badge b-${esc(d.verdict)}" style="font-size:1rem;">${esc(d.verdict)}</span></div><div class="kpi-sub">Coletor: ${esc(d.collector)}</div></div>
+          <div class="card"><div class="kpi-title">Conexões</div><div class="kpi-num">${s.total_connections}</div><div class="kpi-sub">${s.established_count} ativas • ${s.listening_count} escutando</div></div>
+          <div class="card"><div class="kpi-title">Download / Upload</div><div class="kpi-num" style="font-size:1.35rem;">${s.rx_kbps} / ${s.tx_kbps} KB/s</div><div class="kpi-sub">Total: ${fmtBytes(s.total_bytes_recv)} / ${fmtBytes(s.total_bytes_sent)}</div></div>
+          <div class="card"><div class="kpi-title">Suspeitas / IPs Externos</div><div class="kpi-num">${s.suspicious_count} / ${s.unique_remote_ips}</div><div class="kpi-sub">Erros: ${s.errors} • Descartes: ${s.discards}</div></div>
+        </div>
+        <div class="panel"><h2>Alertas de Tráfego (${d.alerts.length})</h2>${alertsHtml}</div>
+      `;
+    }
+
+    function renderNetworkChart(history) {
+      const svg = document.getElementById("netChart");
+      if (!history.length) { svg.innerHTML = ""; return; }
+      const w = 800, h = 160, pad = 16;
+      const maxVal = Math.max(10, ...history.map(p => Math.max(p.rx_kbps, p.tx_kbps)));
+      const stepX = history.length > 1 ? (w - pad * 2) / (history.length - 1) : 0;
+
+      const buildLine = (key) => history.map((pt, i) => {
+        const x = pad + i * stepX;
+        const y = h - pad - ((pt[key] / maxVal) * (h - pad * 2));
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+
+      const grid = [0.25, 0.5, 0.75].map(r => {
+        const y = pad + r * (h - pad * 2);
+        return `<line x1="${pad}" y1="${y}" x2="${w - pad}" y2="${y}" stroke="#1f293d" stroke-dasharray="4 4"/>`;
+      }).join("");
+
+      svg.innerHTML = `
+        ${grid}
+        <text x="${pad}" y="14" fill="#8f9bb3" font-size="11">Pico: ${maxVal.toFixed(1)} KB/s</text>
+        <polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="${buildLine('rx_kbps')}"/>
+        <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="${buildLine('tx_kbps')}"/>
+      `;
+    }
+
+    function renderNetworkTable() {
+      if (!lastNetData) return;
+      const q = document.getElementById("netSearch").value.trim().toLowerCase();
+      const rows = lastNetData.connections.filter(c => {
+        if (netFilter === "SUSPICIOUS" && !c.suspicious) return false;
+        if (netFilter !== "ALL" && netFilter !== "SUSPICIOUS" && c.state !== netFilter) return false;
+        if (!q) return true;
+        return (
+          (c.local_ip + ":" + c.local_port + " " + c.remote_ip + ":" + c.remote_port + " " + c.process_name + " " + c.pid + " " + c.state)
+            .toLowerCase().includes(q)
+        );
+      });
+
+      document.getElementById("netTableArea").innerHTML = `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Proto</th><th>Local</th><th>Remoto</th><th>Estado</th><th>PID / Processo</th><th>Risco</th></tr></thead>
+          <tbody>
+            ${rows.slice(0, 250).map(c => `<tr>
+              <td>${esc(c.proto)}</td>
+              <td><code class="mono">${esc(c.local_ip)}:${esc(c.local_port ?? "*")}</code></td>
+              <td><code class="mono">${esc(c.remote_ip)}:${esc(c.remote_port ?? "*")}</code></td>
+              <td>${esc(c.state)}</td>
+              <td>${c.pid} ${c.process_name ? `• <strong>${esc(c.process_name)}</strong>` : ""}</td>
+              <td><span class="badge b-${esc(c.risk_level)}">${esc(c.risk_level)}</span></td>
+            </tr>`).join("")}
+          </tbody>
+        </table></div>
+      `;
+    }
+
+    // --- CÓDIGO DEVSECOPS ---
+    function scanCodePreset(path) {
+      document.getElementById("codeTargetInput").value = path;
+      scanCode();
+    }
+
+    async function scanCode() {
+      const target = document.getElementById("codeTargetInput").value.trim() || ".";
+      const area = document.getElementById("codeResultArea");
+      area.innerHTML = `<div class="panel">Executando varredura em <code>${esc(target)}</code>...</div>`;
+      try {
+        const res = await fetch("/api/scan/code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Erro na análise");
+        const findingsHtml = data.findings.length
+          ? data.findings.map(f => `
+            <div class="alert-item sev-${esc(f.severity)}">
+              <span class="badge b-${esc(f.severity)}">${esc(f.severity)}</span>
+              <strong>${esc(f.rule_id)}</strong> — ${esc(f.title)} (<code class="mono">${esc(f.file_path)}:${f.line}</code>)
+              <div class="empty-msg">${esc(f.description)}</div>
+              <div style="font-size:.82rem;color:#cbd5e1;"><strong>Correção:</strong> ${esc(f.remediation)}</div>
+            </div>`).join("")
+          : `<div class="empty-msg">Nenhuma vulnerabilidade encontrada neste alvo.</div>`;
+
+        area.innerHTML = `
+          <div class="grid-cards">
+            <div class="card"><div class="kpi-title">Parecer</div><div class="kpi-num"><span class="badge b-${esc(data.verdict)}" style="font-size:1rem;">${esc(data.verdict)}</span></div><div class="kpi-sub">Nota ${esc(data.grade)} (${data.score}/100)</div></div>
+            <div class="card"><div class="kpi-title">Arquivos</div><div class="kpi-num">${data.files_scanned}</div><div class="kpi-sub">Ignorados: ${data.files_skipped}</div></div>
+            <div class="card"><div class="kpi-title">Achados</div><div class="kpi-num">${data.total_findings}</div><div class="kpi-sub">Duração: ${data.duration_seconds}s</div></div>
+          </div>
+          <div class="panel"><h2>Achados (${data.total_findings})</h2>${findingsHtml}</div>
+        `;
+      } catch (err) {
+        area.innerHTML = `<div class="panel"><span class="badge b-CRITICAL">ERRO</span> ${esc(err.message)}</div>`;
+      }
+    }
+
+    checkHealth();
+  </script>
+</body>
+</html>
